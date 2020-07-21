@@ -1,9 +1,18 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.urls import reverse
+
+
+class PublishedManager(models.Manager):
+    def get_queryset(self):
+        return super(PublishedManager, self).get_queryset().filter(status='published')
 
 
 class Post(models.Model):
+    objects = models.Manager()  # Default Manager
+    published = PublishedManager()  # Custom Manager
+
     STATUS_CHOICES = (
         ('draft', 'Draft'),
         ('published', 'Published'),
@@ -16,6 +25,10 @@ class Post(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='draft')
+
+    # reverse() allows to build URL by their name and pass optional param.
+    def get_absolute_url(self):
+        return reverse('blog:post_detail', args=[self.publish.year, self.publish.month, self.publish.day, self.slug])
 
     class Meta:
         ordering = ('-publish',)

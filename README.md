@@ -1,6 +1,16 @@
 # Django
 Docs for the book - Django 3 By Example
 
+## REMEMBER
+
+### Static Files
+```
+blog->static->css->blog.css
+```
+### Templates
+```
+blog->templates->blog->index.html
+```
 
 ## Python Basic Commands
 
@@ -8,9 +18,6 @@ Docs for the book - Django 3 By Example
 ```shell
 $ python --version
 ```
-
-2.
-
 
 ## Isolated Python Envirnment
 
@@ -220,4 +227,186 @@ Post.objects.order_by('-title') #DESC
 ```python
  post = Post.objects.get(id=1)
  post.delete()
+```
+
+## Custom Manager
+`objects` is the default manager.
+
+> Custom manager to retrieve all posts with the `published` status
+
+`models.py`
+```python
+class PublishedManager(models.Manager):
+    def get_queryset(self):
+        return super(PublishedManager, self).get_queryset().filter(status='published')
+    
+    
+class Post(models.Model):
+    objects = models.Manager() # Default Manager
+    published = PublishedManager() # Custom Manager
+```
+Using Custom Model
+```python
+ from blog.models import Post
+ Post.published.filter(title__startswith='Who')
+```
+
+
+## View
+
+Article List and Detail Page
+
+```python
+from django.shortcuts import render, get_object_or_404
+from .models import Post
+
+
+def post_list(request):
+    posts = Post.published.all()
+    return render(request, 'blog/post/list.html', {'posts': posts})
+
+
+def post_detail(request, year, month, day, post):
+    post = get_object_or_404(Post, slug=post, status='published', publish__year=year, publish__month=month, publish__day=day)
+    return render(request, 'blog/post/detail.html', {'post', post})
+```
+
+### URL Mapping
+**Create urls.py inside blog** \
+`url.py` of blog app
+
+```python
+from django.urls import path
+from . import views
+
+app_name = 'blog'
+
+urlpatterns = [
+    path('', views.post_list, name='post_list'),
+    path('<int:year>/<int:month>/<int:day>/<slug:post>/', views.post_detail, name='post_detail'),
+]
+```
+
+* Application namespace, allows to organize urls by application.
+* `<int:year>` these all are path converters.
+* if path converters is not sufficient use `re_path`.
+
+**Edit urls.py inside main project directory**\
+`urls.py` of main directory
+```python
+from django.contrib import admin
+from django.urls import path, include
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('blog/', include('blog.urls', namespace='blog')),
+]
+```
+
+## Canonical URL's
+A Canonical URL's is a preferred URL for a resource.\
+`models.py`
+```python
+from django.urls import reverse
+
+    def get_absolute_url(self):
+        return reverse('blog:post_detail', args=[self.publish.year, self.publish.month, self.publish.date, self.slug])
+```
+* reverse() allows to build URL by their name and pass optional param.
+
+## Templates
+
+```
+|--templates
+|----blog
+|------base.html
+|------post
+|--------list.html
+|--------detail.html
+```
+
+**Template Tags**\
+`{% tag %}` Renders template
+**Template Variables**\
+`{{ variable }}` Places values
+**Template Filters**\
+`{{ variable |filter }}` Modify variables
+
+### Template Views
+`base.html`
+
+```html
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %} {% endblock %}</title>
+    <link href="{% static 'css/blog.css' %}" rel="stylesheet">
+</head>
+<body>
+<div id="content">
+    {% block content %}
+    {% endblock %}
+</div>
+</body>
+</html>
+```
+
+* `{% load static %}` loads static template tags that are provided by the `django.contrib.staticfiles` app.
+* `blog.css` is located under `blog/static/css` directory.
+
+`list.html`
+
+```python
+{% extends "blog/base.html" %}
+{% block title %} My Blog Home Page {% endblock %}
+{% block content %}
+    <h1>My Blog</h1>
+    {% for post in posts %}
+        <h2>
+            <a href="{{ post.get_absolute_url }}">{{ post.title }}</a>
+        </h2>
+        <p class="date">
+            Published {{ post.publish }} by {{ post.author }}
+        </p>
+        {{ post.body|truncatewords:30|linebreaks }}
+    {% endfor %}
+{% endblock %}
+```
+
+**Explaination - Custom URL**
+1. `get_absolute_url` called from HTML which is defined in model class.
+```python
+# reverse() allows to build URL by their name and pass optional param.
+    def get_absolute_url(self):
+        return reverse('blog:post_detail', args=[self.publish.year, self.publish.month, self.publish.day, self.slug])
+```
+2. The reverse method return custom url.
+3. `blog` is app name and `post_detail` is view name. \
+`urls.py`
+```python
+path('<int:year>/<int:month>/<int:day>/<slug:post>/', views.post_detail, name='post_detail'),
+```
+`views.py`
+```python
+def post_detail(request, year, month, day, post):
+    post = get_object_or_404(Post, slug=post, status='published', publish__year=year, publish__month=month, publish__day=day)
+    return render(request, 'blog/post/detail.html', {'post', post})
+```
+
+### Contd.
+
+`detail.html`
+```python
+{% extends 'blog/base.html' %}
+{% block title %}{{ post.title }}{% endblock title %}
+
+{% block content %}
+    <h1> {{ post.title }}
+    <p class="date">
+        Published {{ post.publish }} by {{ post.author }}
+    </p>
+    {{ post.body|linebreaks }}
+{% endblock content %}
 ```
