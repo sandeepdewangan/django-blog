@@ -410,3 +410,78 @@ def post_detail(request, year, month, day, post):
     {{ post.body|linebreaks }}
 {% endblock content %}
 ```
+
+## Pagination
+Function Based Pagination and Class Based Pagination
+
+### Function Based Pagination
+
+1. Edit `view.py`
+```python
+def post_list(request):
+    object_list = Post.published.all()
+    # 1 - initialize the paginator class, 3 post in each page
+    paginator = Paginator(object_list, 3)
+    # 2 - get current page number
+    page = request.GET.get('page')
+    try:
+        # 3 - obtain object for desired page
+        posts = paginator.page(page) 
+    except PageNotAnInteger:
+        #if page not an integer deliver first page
+        posts = paginator.page(1) 
+    except EmptyPage:
+        # if page is out of range deliver last page
+        posts = paginator.page(paginator.num_pages)
+    return render(request, 'blog/post/list.html', {'page': page, 'posts': posts})
+```
+
+2. Create `pagination.html`
+
+```html
+<div class="pagination">
+  <span class="step-links">
+    {% if page.has_previous %}
+      <a href="?page={{ page.previous_page_number }}">Previous</a>
+    {% endif %}
+    <span class="current">
+      Page {{ page.number }} of {{ page.paginator.num_pages }}.
+    </span>
+    {% if page.has_next %}
+      <a href="?page={{ page.next_page_number }}">Next</a>
+    {% endif %}
+  </span>
+</div>
+```
+
+3. Include pagination under `list.html`
+```python
+{% include "pagination.html" with page=posts %}
+```
+
+
+## Class Based Views and Class Based Pagination
+Advantages of Class based views
+1. Organizing code GET, POST, PUT in separate method.
+2. Using multiple inheritance to create reusable view classes (also known as mixins)
+
+**Create View**
+```python
+from django.views.generic import ListView
+class PostListView(ListView):
+    queryset = Post.published.all()
+    context_object_name = 'posts'
+    paginate_by = 3
+    template_name = 'blog/post/list.html'
+```
+
+**Edit `urls.py`**
+```python
+path('', views.PostListView.as_view(), name='post_list'),
+```
+
+**Edit list.html**
+> Django's ListView generic view passes the selected page in a variable called page_obj
+```python
+{% include "pagination.html" with page=page_obj %}
+```
