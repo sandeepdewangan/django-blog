@@ -12,6 +12,11 @@ blog->static->css->blog.css
 blog->templates->blog->index.html
 ```
 
+### Building URL
+```python
+<a href="{% url "blog:post_share" post.id %}">
+```
+
 ## Python Basic Commands
 
 1. Python version
